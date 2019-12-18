@@ -1,0 +1,255 @@
+#include <windows.h>
+#include <iostream>
+#include <stdio.h>
+#include <conio.h>
+#include <time.h>
+using namespace std ;
+
+const int N = 23;
+
+void color(int a)//顏色函式 
+{
+	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE),a);
+}
+
+struct Point { 
+    int x,y;
+    void set(int A, int B) {x=A; y=B;} //x,y 座標  X,Y 方向 
+};
+
+
+HANDLE hIn, hOut;                           //I/O 控制器
+Point  body[32], cookie, v = {-2,0};        //體塊, 食物, 移動向量,
+char   room[N][N*2+4];                    //房間
+int    t,delay_time = 100;                    //延遲時間
+int    x1=2,y1=1,x2=(N-1)*2,y2=N-1, len=2,score=0;  //房間邊界, 身長
+bool   bExit = false;                       //是否持續遊戲
+
+
+void gotoxy (int x, int y)
+{
+    static COORD c;  //"c"的生命週期會到程式結束，但是他的scope 還是在void gotoxy中，每次呼叫void gotoxy，函數中"c"的值會保留上次呼叫最後一次設定的值 
+    c.X = x; c.Y = y;
+    SetConsoleCursorPosition (hOut, c);//設置光標位置，並由此控制被寫入或呼應高級I / O函數文本的位置。如果你移動光標，文字在新的光標位置將被覆蓋。  
+}
+
+void draw (int x, int y, char* s)
+{
+    gotoxy (x,y);
+    printf("%s",s);
+}
+
+void drawList (int N){  //畫出牆壁 
+
+	int wall[N+2][N+2];
+	for(int i=0;i<N+2;i++){  //全部陣列都填0 
+		for(int j=0;j<N+2;j++){
+		wall[i][j]=0;
+		}
+	}
+
+	for(int i=1;i<N+1;i++){ //蛇可以移動部分存為1 
+		for(int j=1;j<N+1;j++){ 
+			wall[i][j]=1;
+		} 
+ 	}
+
+
+	for(int i=0;i<N+2;i++){ //當為1時(蛇可移動部分),印出空白;當為0時(牆壁),印出 █ 
+		for(int j=0;j<N+2;j++){
+			if(wall[i][j]==1){
+				printf("  ");
+			} else{
+				printf("█");
+			} 
+		}
+		printf("\n");
+	}
+}
+
+
+void put_cookie () //亂數取食物放置位置 
+{
+    cookie.x = 3 + rand()%(N-2) * 2;
+    cookie.y = 2 + rand()%(N-3);
+   
+}
+
+
+void init()
+{
+    srand (time(0));
+    hOut = GetStdHandle (STD_OUTPUT_HANDLE);
+    hIn  = GetStdHandle (STD_INPUT_HANDLE);
+    HANDLE err = INVALID_HANDLE_VALUE;
+    drawList ( N);   
+    gotoxy (0,0);
+    for (int i=0; i<N; i++){
+		cout << room[i];
+	} 
+    put_cookie ();
+   
+    body[0].set ((x2-x1)/2, (y2-y1)/2);
+    body[1].set (body[0].x+1, body[0].y);
+}
+
+
+void key_control() //控制上下左右(w,s,a,d) 
+{  
+
+    switch(getch()){
+        case 'w' :
+			v.set(0,-1);break;
+        case 's' :
+			v.set(0, 1);break;
+        case 'a' :
+			v.set(-2, 0); break;
+        case 'd' :
+			v.set(2, 0); break;
+              
+    }     
+      
+}
+
+void case1move_snack()
+{   
+    int i;
+    int& x = body[0].x;						//body[0]是蛇頭 
+    int& y = body[0].y;
+    for (i=1; i<len; i++)                   //檢查自身碰撞
+        if (body[0].x == body[i].x &&
+            body[0].y == body[i].y ) break;
+
+    if (i!=len || x<=x1 || x>x2 || y<=y1 || y>y2) { //檢查是否撞牆 
+        color(12);
+		draw (16,10,"你輸了,叫你阿嬤來玩啊");
+        getch(); 
+		bExit = true;
+        return;
+    }
+
+    if (x == cookie.x && y == cookie.y) {   //吃到食物
+        delay_time -= t;					//調整速度
+        score++;
+        if (++len > 25) {
+			color(12);					//當蛇長到達某長度時則玩家獲勝
+            draw (16,10, "Y o u    W i n");
+            getch(); bExit = true;
+            return;
+        }put_cookie();
+    }else{
+		draw (body[len-1].x, body[len-1].y, "  "); //截尾補頭
+	} 
+    for (i=len-1; i>0; i--)	{					//畫出蛇體
+        body[i] = body[i-1];
+    } 
+    x += v.x;
+    y += v.y;
+    for (i=0; i<len; i++){ 
+        draw (body[i].x, body[i].y, "█");
+    } 
+}
+
+
+void case2move_snack()
+{   
+    int i;
+    int& x = body[0].x;
+    int& y = body[0].y;
+    for (i=1; i<len; i++)                   //檢查自身碰撞
+        if (body[0].x == body[i].x &&
+            body[0].y == body[i].y ) break;
+
+    if (x == cookie.x && y == cookie.y) {   //吃到食物
+        delay_time -= t;
+        score++;
+        if (++len > 20) {
+            draw (16,10, "Y o u    W i n");
+            getch(); bExit = true;
+            return;
+        }put_cookie();
+    }else{
+		draw (body[len-1].x, body[len-1].y, "  ");
+	}
+	 
+    for (i=len-1; i>0; i--){ 
+        body[i] = body[i-1];
+    } 
+    x += v.x;
+    y += v.y;
+    for (i=0; i<len; i++){ 
+        draw (body[i].x, body[i].y, "█");
+    } 
+}
+
+
+int main ()
+{
+	
+	int choice;
+	
+
+		printf("MENU\n");			//印選單 
+		printf("1.正常模式\n");
+		printf("2.吃牆壁模式\n");
+		printf("3.EXIT\n");
+		printf("=> ");
+		scanf("%d", &choice);
+		printf("\n"); 
+		
+		if(choice==3){
+			printf("BYE~~~~~");
+		}
+		
+		switch(choice){
+			case 1:				//選取正常模式 
+				if(choice==1){
+					printf("輸入吃到東西後速度(2~10): ");		//調速度 
+					scanf("%d", &t);
+					
+					system("CLS"); //清空介面
+					init();
+    				while (!bExit)
+    				{        
+     
+        				Sleep (delay_time); 
+  						if (kbhit()) key_control();
+        				color(14);	//星星顏色 
+       					draw (cookie.x, cookie.y, "★");
+        				color(11);	//蛇的顏色 
+        				case1move_snack();
+        				Sleep (delay_time); 
+  						if (kbhit()) key_control();            
+        				gotoxy (10,24);
+  						printf("\nScore:%d",score);
+            
+    				}
+    				break;
+				}
+
+			case 2:		//選取吃牆壁模式 
+				if(choice==2){
+					printf("輸入吃到東西後速度(2~10): ");		//調速度 
+					scanf("%d", &t);
+					
+					system("CLS"); //清空介面
+					init();
+    				while (!bExit)
+    				{        
+     
+        				Sleep (delay_time); 
+  						if (kbhit()) key_control();
+        				color(14);	//星星顏色 
+       					draw (cookie.x, cookie.y, "★");
+        				color(11);	//牆壁顏色 
+        				case2move_snack();
+        				Sleep (delay_time); 
+  						if (kbhit()) key_control();            
+        				gotoxy (10,24);
+  						printf("\nScore:%d",score);
+            
+    				}
+    				break;
+				}
+		}
+}
